@@ -1,5 +1,9 @@
 import json
 import re
+from collections import defaultdict
+from math import floor
+from statistics import mean
+
 
 # loads the given JS file of tweets
 def load_raw_file(path: str) -> str:
@@ -56,16 +60,52 @@ def process_tweets(raw: str) -> list[str]:
 
     return tweets
 
+# preprocesses all given tweets (and store number of likes)
+def process_tweets_alt(raw: str) -> dict[str, int]:
+    tweets_data = extract_tweets_json(raw)
+
+    tweets = defaultdict(list[int])
+
+    for item in tweets_data:
+        tweet = item["tweet"]
+
+        text = tweet.get("full_text", "")
+
+        cleaned_text = clean_tweet_text(text)
+
+        if cleaned_text == "":
+            continue
+
+        tweets[cleaned_text].append(tweet.get("favorite_count", 0))
+
+    summed_likes = {val: floor(mean(int(idx) for idx in key)) for val, key in tweets.items()} # averaging number of likes for duplicate posts
+
+    sorted_likes = sorted(summed_likes.items(), key=lambda x: x[1], reverse=True) # sorting posts by number of likes
+
+    rearranged_dict = {key: val for key, val in sorted_likes} # convert tuple into dictionary
+
+    return rearranged_dict
+
 # saves list of tweets to given output path
 def save_tweets(tweets: list[str], output_path:str):
     with open(output_path, "w", encoding="utf-8") as f:
         for tweet in tweets:
             f.write(tweet + "\n")
 
+# saves dictionary of tweets and number of likes to given output path
+def save_tweets_alt(tweets: dict[str, int], output_path:str):
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(tweets, f, ensure_ascii=False)
 
 # execute complete tweet cleaning pipeline
 def run_pipeline(input_path:str, output_path:str):
     raw_tweets = load_raw_file(input_path)
+
     tweets = process_tweets(raw_tweets)
     save_tweets(tweets, output_path)
+
+    tweets_alt = process_tweets_alt(raw_tweets)
+    output_path_alt = output_path[:-4] + "_alt.json"
+    save_tweets_alt(tweets_alt, output_path_alt)
+
     print(f"Processed {len(tweets)} tweets")
