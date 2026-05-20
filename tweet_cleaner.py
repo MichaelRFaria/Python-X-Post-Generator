@@ -1,6 +1,7 @@
 import json
 import re
 from collections import defaultdict
+from collections.abc import Callable
 from math import floor
 from statistics import mean
 import os.path
@@ -40,8 +41,27 @@ def clean_tweet_text(text: str) -> str:
 
     return text
 
+# tweet preprocessing (keeps only posts - no replies)
+def clean_tweet_text_alt(text: str) -> str:
+    text = re.sub(r"https://t\.co/\S+", "", text)
+
+    # remove newlines, normalise whitespaces, remove leading and trailing linespaces
+    text = text.replace("\n", " ")
+    text = re.sub(r"\s+", " ", text)
+    text.strip()
+
+    # if the remaining tweet is a mention (reply), then skip it
+    if re.match(r"@+", text):
+        return ""
+
+    # skip empty tweets
+    if text == "" or text == " ":  # todo - previous strip should mean that text == " " isn't needed, but for some reason it is necessary
+        return ""
+
+    return text
+
 # preprocesses all given tweets
-def process_tweets(raw: str) -> list[str]:
+def process_tweets(raw: str, cleaning_function: Callable[[str], str]) -> list[str]:
     tweets_data = extract_tweets_json(raw)
 
     tweets = []
@@ -51,7 +71,7 @@ def process_tweets(raw: str) -> list[str]:
 
         text = tweet.get("full_text", "")
 
-        cleaned_text = clean_tweet_text(text)
+        cleaned_text = cleaning_function(text)
 
         if cleaned_text == "":
             continue
@@ -103,9 +123,14 @@ def run_pipeline(input_path:str, output_path:str):
 
     #if cleaned tweets files do not exist, process tweets and save them
     if not os.path.exists(output_path):
-        tweets = process_tweets(raw_tweets)
+        tweets = process_tweets(raw_tweets, clean_tweet_text)
         save_tweets(tweets, output_path)
         print(f"Processed {len(tweets)} tweets")
+
+    output_path_no_replies = output_path[:-4] + "_no_mentions.txt"
+    if not os.path.exists(output_path_no_replies):
+        tweets = process_tweets(raw_tweets, clean_tweet_text_alt)
+        save_tweets(tweets, output_path_no_replies)
 
     output_path_alt = output_path[:-4] + "_alt.json"
     if not os.path.exists(output_path_alt):
