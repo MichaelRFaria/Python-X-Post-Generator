@@ -3,7 +3,7 @@ import re
 from collections import defaultdict
 from math import floor
 from statistics import mean
-
+import os.path
 
 # loads the given JS file of tweets
 def load_raw_file(path: str) -> str:
@@ -101,11 +101,13 @@ def save_tweets_alt(tweets: dict[str, int], output_path:str):
 def run_pipeline(input_path:str, output_path:str):
     raw_tweets = load_raw_file(input_path)
 
-    tweets = process_tweets(raw_tweets)
-    save_tweets(tweets, output_path)
+    #if cleaned tweets files do not exist, process tweets and save them
+    if not os.path.exists(output_path):
+        tweets = process_tweets(raw_tweets)
+        save_tweets(tweets, output_path)
+        print(f"Processed {len(tweets)} tweets")
 
-    tweets_alt = process_tweets_alt(raw_tweets)
     output_path_alt = output_path[:-4] + "_alt.json"
-    save_tweets_alt(tweets_alt, output_path_alt)
-
-    print(f"Processed {len(tweets)} tweets")
+    if not os.path.exists(output_path_alt):
+        tweets_alt = process_tweets_alt(raw_tweets)
+        save_tweets_alt(tweets_alt, output_path_alt)
