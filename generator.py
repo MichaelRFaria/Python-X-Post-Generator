@@ -17,28 +17,27 @@ def get_random_tweets(tweets: list[str], num: int) -> list[str]:
 
 def create_prompt(tweets: list[str]) -> str:
     return f"""
-    Instructions:
-    You are a social media copywriter who writes high-quality Twitter/X posts that match a specific writing style.
+    Below are tweets from a user.
     
-    Task:
-    Generate 5 original Twitter posts based on the example tweets (posts and/or replies) provided below.
-    
-    Style reference:
-    The examples represent the tone, structure, humor, vocabulary and pacing I want you to imitate. Do not copy them directly. Extract the style and generate your own.
+    Write 5 NEW tweets that could realistically come from the same account.
     
     Rules:
-    1. Each tweet must be original (no copying or paraphrasing sentences directly)
-    2. Keep each tweet under 280 characters
-    3. Match the tone, flow and formatting style of the examples
-    4. Preserve any common patterns (e.g. humor, threads, hooks, brevity, emojis, etc.)
-    5. Avoid repetition across the 5 outputs
+    - Be concise
+    - Do not explain the jokes
+    - No hashtags
+    - No moralising
+    - No "as an AI"
+    - Avoid sounding inspirational or corporate
+    - Match the bizzare/confident/internet-poisoned tone of the examples
+    - Tweets should feel casually unhinged, not tryhard random
+    - Keep tweets short unless longer structure feels natural
+    - Do not copy lines directly
     
-    Output format:
-    Return exactly 5 tweets numbered 1 to 5 with just the post. No extra commentary.
-    
-    Example tweets:
+    Examples:
     {"\n\t".join(tweets)}
     
+    
+    Output only the tweets.
     """
 
 def generate_posts(input_path: str):
@@ -47,10 +46,12 @@ def generate_posts(input_path: str):
     prompt = create_prompt(random_tweets)
 
     stream = chat(
-        model='tinyllama', # this model sucks ass, but it shows that the code works todo try mistral (4.4gb)
+        model='llama3.1:8b',
         messages=[{'role': 'user', 'content': prompt}],
         stream=True,
     )
+
+    print(prompt)
 
     print("Generating posts...")
 
