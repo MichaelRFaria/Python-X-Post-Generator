@@ -20,7 +20,7 @@ def extract_tweets_json(raw: str):
     return json.loads(json_data)
 
 # tweet preprocessing
-def clean_tweet_text(text: str) -> str:
+def clean_tweet_text(text: str, cleaning_criteria: str) -> str:
     text = re.sub(r"https://t\.co/\S+", "", text)
 
     # remove newlines, normalise whitespaces, remove leading and trailing linespaces
@@ -31,9 +31,15 @@ def clean_tweet_text(text: str) -> str:
     #print(text)
     #print(repr(text))
 
-    # if the remaining tweet is just a mention(s), then skip it
-    if re.match(r"^(@\w+\s*)+$", text):
-        return ""
+    match cleaning_criteria:
+        case "normal":
+            # if the remaining tweet is just a mention(s), then skip it
+            if re.match(r"^(@\w+\s*)+$", text):
+                return ""
+        case "no_replies":
+            # if the tweet is a mention, then skip it
+            if re.match(r"@+", text):
+                return ""
 
     # skip empty tweets
     if text == "" or text == " ":  # todo - previous strip should mean that text == " " isn't needed, but for some reason it is necessary
@@ -41,27 +47,8 @@ def clean_tweet_text(text: str) -> str:
 
     return text
 
-# tweet preprocessing (keeps only posts - no replies)
-def clean_tweet_text_alt(text: str) -> str:
-    text = re.sub(r"https://t\.co/\S+", "", text)
-
-    # remove newlines, normalise whitespaces, remove leading and trailing linespaces
-    text = text.replace("\n", " ")
-    text = re.sub(r"\s+", " ", text)
-    text.strip()
-
-    # if the remaining tweet is a mention (reply), then skip it
-    if re.match(r"@+", text):
-        return ""
-
-    # skip empty tweets
-    if text == "" or text == " ":  # todo - previous strip should mean that text == " " isn't needed, but for some reason it is necessary
-        return ""
-
-    return text
-
-# preprocesses all given tweets
-def process_tweets(raw: str, cleaning_function: Callable[[str], str]) -> list[str]:
+# preprocesses all given tweets as a list (for a text file)
+def process_tweets_to_list(raw: str, cleaning_criteria: str) -> list[str]:
     tweets_data = extract_tweets_json(raw)
 
     tweets = []
@@ -71,7 +58,7 @@ def process_tweets(raw: str, cleaning_function: Callable[[str], str]) -> list[st
 
         text = tweet.get("full_text", "")
 
-        cleaned_text = cleaning_function(text)
+        cleaned_text = clean_tweet_text(text, cleaning_criteria)
 
         if cleaned_text == "":
             continue
@@ -80,8 +67,9 @@ def process_tweets(raw: str, cleaning_function: Callable[[str], str]) -> list[st
 
     return tweets
 
-# preprocesses all given tweets (and store number of likes)
-def process_tweets_alt(raw: str) -> dict[str, int]:
+# preprocesses all given tweets as a dictionary (for a json file)
+# currently saves tweets with their number of likes. this will have some sort of condiitonal/branching in the future for alternate scenarios.
+def process_tweets_to_dict(raw: str) -> dict:
     tweets_data = extract_tweets_json(raw)
 
     tweets = defaultdict(list[int])
@@ -91,7 +79,7 @@ def process_tweets_alt(raw: str) -> dict[str, int]:
 
         text = tweet.get("full_text", "")
 
-        cleaned_text = clean_tweet_text(text)
+        cleaned_text = clean_tweet_text(text, "normal")
 
         if cleaned_text == "":
             continue
@@ -106,14 +94,14 @@ def process_tweets_alt(raw: str) -> dict[str, int]:
 
     return rearranged_dict
 
-# saves list of tweets to given output path
-def save_tweets(tweets: list[str], output_path:str):
+# saves list of tweets to given output path (text file)
+def save_tweets_to_txt(tweets: list[str], output_path:str):
     with open(output_path, "w", encoding="utf-8") as f:
         for tweet in tweets:
             f.write(tweet + "\n")
 
-# saves dictionary of tweets and number of likes to given output path
-def save_tweets_alt(tweets: dict[str, int], output_path:str):
+# saves dictionary of tweets to given output path (json file)
+def save_tweets_to_json(tweets: dict, output_path:str):
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(tweets, f, ensure_ascii=False)
 
@@ -123,16 +111,16 @@ def run_pipeline(input_path:str, output_path:str):
 
     #if cleaned tweets files do not exist, process tweets and save them
     if not os.path.exists(output_path):
-        tweets = process_tweets(raw_tweets, clean_tweet_text)
-        save_tweets(tweets, output_path)
+        tweets = process_tweets_to_list(raw_tweets, "normal")
+        save_tweets_to_txt(tweets, output_path)
         print(f"Processed {len(tweets)} tweets")
 
     output_path_no_replies = output_path[:-4] + "_no_mentions.txt"
     if not os.path.exists(output_path_no_replies):
-        tweets = process_tweets(raw_tweets, clean_tweet_text_alt)
-        save_tweets(tweets, output_path_no_replies)
+        tweets = process_tweets_to_list(raw_tweets, "no_replies")
+        save_tweets_to_txt(tweets, output_path_no_replies)
 
-    output_path_alt = output_path[:-4] + "_alt.json"
+    output_path_alt = output_path[:-4] + "_with_likes.json"
     if not os.path.exists(output_path_alt):
-        tweets_alt = process_tweets_alt(raw_tweets)
-        save_tweets_alt(tweets_alt, output_path_alt)
+        tweets = process_tweets_to_dict(raw_tweets)
+        save_tweets_to_json(tweets, output_path_alt)
