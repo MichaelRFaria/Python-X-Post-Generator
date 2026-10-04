@@ -46,7 +46,7 @@ def generate_posts(input_path: str):
     prompt = create_prompt(random_tweets)
 
     stream = chat(
-        model='llama3.1:8b',
+        model='qwen3:14b',
         messages=[{'role': 'user', 'content': prompt}],
         stream=True,
     )
